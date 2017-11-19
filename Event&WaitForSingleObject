@@ -1,0 +1,65 @@
+
+事件event与waitforsingleobject的配合使用，能够解决很多同步问题，也可以在数据达到某个状态时启动另一个线程的执行，如报警。
+
+event的几个函数：
+
+1、CreateEvent和OpenEvent
+
+HANDLE WINAPI CreateEvent(
+  __in          LPSECURITY_ATTRIBUTES lpEventAttributes,    //表示安全控制，一般直接传入NULL,表示不能被子进程继承
+  __in          BOOL bManualReset,  //参数确定事件是手动置位还是自动置位，传入TRUE表示手动置位，传入FALSE表示自动置位。
+  __in          BOOL bInitialState,  //Event的初始状态， TRUE为触发，FALSE未触发
+  __in          LPCTSTR lpName   //Event object的名字，NULL表示没名字（without a name）
+);
+
+要是CreateEvent创建的事件没名字  这个函数就没啥用了，不多做介绍，可查看msn。
+HANDLE WINAPI OpenEvent(                   //获得已经存在的Event的事件句柄
+  __in          DWORD dwDesiredAccess,
+  __in          BOOL bInheritHandle,
+  __in          LPCTSTR lpName       //要打开的事件名字
+);
+
+2、SetEvent，触发事件
+
+1 BOOL SetEvent(HANDLE hEvent);
+3、ResetEvent，使事件状态设为未触发，如在创建事件时第二个参数为TRUE手动设置，则需要该函数去恢复事件为未触发状态。
+
+BOOL SetEvent(HANDLE hEvent);
+4、PulseEvent， 如在创建事件时第二个参数为TRUE手动设置，其功能相当于SetEvent()后立即调用ResetEvent()，最好别用
+
+1 BOOL PulseEvent(HANDLE hEvent)
+5、CloseHandle()，关闭该句柄。
+
+WaitForSingleObject函数。使线程处于等待状态，如等待某一事件的触发。
+
+DWORD WINAPI WaitForSingleObject(
+
+  HANDLE hHandle,                   //等待的触发句柄  ，  如前面说的Event的句柄
+
+  DWORD dwMilliseconds             //等待多长时间，单位ms   如5000 则为5s   若为INFINITE表示无限等待
+
+);
+
+一种应用的例子：
+
+BOOL CMainDlg::OnInitDialog()
+{
+    CDialog::OnInitDialog();
+
+    m_handle = CreateEvent(NULL,FALSE,FALSE,NULL);  //自动复位事件状态，初始状态未触发
+
+    return TRUE;  
+}
+//线程1函数
+{
+   ....
+   SetEvent(m_handle);       //触发事件
+}
+//线程2函数
+{
+    ......
+   WaitForSingleObject(m_handle,INFINITE);  //无限等待 事件的触发才会执行后续程序
+   ...........
+}
+
+最后，事件是内核对象，事件分为手动置位事件和自动置位事件。事件Event内部它包含一个使用计数（所有内核对象都有），一个布尔值表示是手动置位事件还是自动置位事件，另一个布尔值用来表示事件有无触发。事件可以由SetEvent()来触发，由ResetEvent()来设成未触发。还可以由PulseEvent()来发出一个事件脉冲。
